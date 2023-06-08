@@ -1,5 +1,6 @@
 const express = require('express')
 const cors    = require('cors');
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config();
 const app     = express();
@@ -24,10 +25,22 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     const userCollection = client.db('sportsDB').collection('users'); 
+    app.post('/jwt',async(req,res)=>{
+      const user = req.body;
+      const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+      res.send({token})
+    })
     app.post('/users',async(req,res)=>{
       const newUser = req.body;
+      const query = {email:newUser.email};
+      const existUser = await userCollection.findOne(query);
+      if(existUser){
+        return res.send({message:'user already added'});
+      }
+
       newUser.role = 'student'
       console.log(newUser);
+
       const result = await userCollection.insertOne(newUser);
       res.send(result);
     })   
