@@ -134,9 +134,35 @@ async function run() {
       res.send(result);
     })
     //Class related API
+    app.get('/classes',verifyJWT,verifyInstructor,async(req,res)=>{
+       const result = await classCollection.find().toArray();
+       res.send(result);
+    })
+    app.get('/classes/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await classCollection.findOne(query);
+      res.send(result);
+    })
+    app.patch('/classes/:id',async(req,res)=>{
+      const id = req.params.id;
+      const filter = {_id:new ObjectId(id)};
+      const updatedClass = req.body;
+       const updatedDoc = {
+        $set: {
+          name: updatedClass.name,
+          price: updatedClass.price,
+          seats: updatedClass.seats
+        }
+      }
+      const result = await classCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+      
+    })
     app.post('/classes',verifyJWT,verifyInstructor,async(req,res)=>{
       const newClass = req.body;
-      console.log(newClass);
+      newClass.status = 'pending';
+      newClass.totalEnrolled = parseFloat(0);
       const result = await classCollection.insertOne(newClass);
       res.send(result);
     })
