@@ -69,6 +69,26 @@ async function run() {
        const result = await userCollection.find().toArray();
        res.send(result);
     })
+    app.get('/users/admin/:email',verifyJWT,async(req,res)=>{
+      const email  = req.params.email;
+      if(req.decoded.email != email){
+        return res.send({admin:false})
+      }
+      const query  = {email:email};
+      const user   = await userCollection.findOne(query);
+      const result = {admin: user?.role === 'admin'}
+      res.send(result);
+    })
+    app.get('/users/instructor/:email',verifyJWT,async(req,res)=>{
+      const email = req.params.email;
+      if(req.decoded.email !== email){
+        return res.send({instructor: false})
+      }
+      const query = {email:email};
+      const user  = await userCollection.findOne(query);
+      const result = {instructor:user?.role === 'instructor'}
+      res.send(result);
+    })
     app.post('/users',async(req,res)=>{
       const newUser = req.body;
       const query = {email:newUser.email};
@@ -83,6 +103,7 @@ async function run() {
       const result = await userCollection.insertOne(newUser);
       res.send(result);
     })   
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
