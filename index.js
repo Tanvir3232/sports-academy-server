@@ -71,7 +71,7 @@ async function run() {
     })
     app.delete('/users/:id',verifyJWT,verifyAdmin,async(req,res)=>{
       const id = req.params.id;
-      console.log(id);
+   
       const query = {_id: new ObjectId(id)};
       const result = await userCollection.deleteOne(query);
       res.send(result);
@@ -105,12 +105,33 @@ async function run() {
       }
 
       newUser.role = 'student'
-      console.log(newUser);
+     
 
       const result = await userCollection.insertOne(newUser);
       res.send(result);
     })   
-
+    app.patch('/users/admin/:id',async(req,res)=>{
+      const id = req.params.id;
+      const filter = {_id: new ObjectId(id)};
+      const updatedDoc={
+        $set:{
+           role:'admin'
+        }
+      }
+      const result = await userCollection.updateOne(filter,updatedDoc);
+      res.send(result);
+    })
+    app.patch('/users/instructor/:id',async(req,res)=>{
+      const id = req.params.id;
+      const filter = {_id: new ObjectId(id)};
+      const updatedDoc={
+        $set:{
+           role:'instructor'
+        }
+      }
+      const result = await userCollection.updateOne(filter,updatedDoc);
+      res.send(result);
+    })
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
