@@ -40,6 +40,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     const userCollection = client.db('sportsDB').collection('users'); 
+    const classCollection = client.db('sportsDB').collection('classes'); 
     app.post('/jwt',async(req,res)=>{
       const user = req.body;
       const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
@@ -130,6 +131,13 @@ async function run() {
         }
       }
       const result = await userCollection.updateOne(filter,updatedDoc);
+      res.send(result);
+    })
+    //Class related API
+    app.post('/classes',verifyJWT,verifyInstructor,async(req,res)=>{
+      const newClass = req.body;
+      console.log(newClass);
+      const result = await classCollection.insertOne(newClass);
       res.send(result);
     })
     // Send a ping to confirm a successful connection
