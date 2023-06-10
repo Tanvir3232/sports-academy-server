@@ -141,12 +141,17 @@ async function run() {
     //Class related API
     app.get('/classes', verifyJWT, async (req, res) => {
       const email = req.query.email;
+     
       let query = {}
       if (email) {
         const checkUser = await userCollection.findOne({ email: email });
         if(checkUser){
              query = {instructorEmail: email}
         }
+       
+      }
+      if(req.query.status){
+        query = {status: req.query.status}
       }
       const result = await classCollection.find(query).toArray();
       res.send(result);
