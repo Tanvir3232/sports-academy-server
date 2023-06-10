@@ -66,8 +66,13 @@ async function run() {
       next();
     }
     //Users related API
-    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
-      const result = await userCollection.find().toArray();
+    app.get('/users', verifyJWT,async (req, res) => {
+      let query = {};
+      if(req.query.instructors){
+        console.log(req.query.instructors);
+         query = {role:req.query.instructors};
+      }
+      const result = await userCollection.find(query).toArray();
       res.send(result);
     })
     app.delete('/users/:id', verifyJWT, verifyAdmin, async (req, res) => {
