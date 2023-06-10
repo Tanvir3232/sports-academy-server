@@ -167,6 +167,30 @@ async function run() {
       res.send(result);
 
     })
+    app.patch('/classes/approve/:id',verifyJWT,verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+     
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          status: 'approved'
+        }
+      }
+      const result = await classCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    })
+    app.patch('/classes/disapprove/:id',verifyJWT,verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          status: 'denied'
+        }
+      }
+      const result = await classCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    })
     app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body;
       newClass.status = 'pending';
