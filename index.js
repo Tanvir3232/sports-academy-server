@@ -41,6 +41,7 @@ async function run() {
     await client.connect();
     const userCollection = client.db('sportsDB').collection('users');
     const classCollection = client.db('sportsDB').collection('classes');
+    const selectedclassCollection = client.db('sportsDB').collection('selectedclasses');
     app.post('/jwt', async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
@@ -66,7 +67,7 @@ async function run() {
       next();
     }
     //Users related API
-    app.get('/users', verifyJWT,async (req, res) => {
+    app.get('/users',async (req, res) => {
       let query = {};
       if(req.query.instructors){
         console.log(req.query.instructors);
@@ -139,7 +140,7 @@ async function run() {
       res.send(result);
     })
     //Class related API
-    app.get('/classes', verifyJWT, async (req, res) => {
+    app.get('/classes', async (req, res) => {
       const email = req.query.email;
      
       let query = {}
@@ -208,6 +209,16 @@ async function run() {
       const result = await classCollection.insertOne(newClass);
       res.send(result);
     })
+
+
+    //Selected Class Related API
+    app.post('/selectedclasses',async(req,res)=>{
+        const newClass = req.body;
+        console.log(newClass);
+        const result = await selectedclassCollection.insertOne(newClass);
+        res.send(result);
+    })
+ 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
