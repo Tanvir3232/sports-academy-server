@@ -3,6 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const app = express();
 const port = process.env.PORT || 5000;
 app.use(cors());
@@ -40,6 +41,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     const userCollection = client.db('sportsDB').collection('users');
+    const paymentCollection = client.db('sportsDB').collection('payments');
     const classCollection = client.db('sportsDB').collection('classes');
     const selectedclassCollection = client.db('sportsDB').collection('selectedclasses');
     app.post('/jwt', async (req, res) => {
@@ -221,6 +223,12 @@ async function run() {
        const result = await selectedclassCollection.find(query).toArray();
        res.send(result);
     })
+    app.get('/selectedclasses/:id',async(req,res)=>{
+       const id = req.params.id;
+       const query = {_id: new ObjectId(id)};
+       const result = await selectedclassCollection.findOne(query);
+       res.send(result)
+    })
     app.post('/selectedclasses',async(req,res)=>{
         const newClass = req.body;
        
@@ -234,7 +242,61 @@ async function run() {
         const result = await selectedclassCollection.deleteOne(query);
         res.send(result);
     })
- 
+
+    // Payment related api
+    app.post('/create-payment-intent',verifyJWT,async(req,res)=>{
+      const {price} = req.body;
+      const amount  = parseInt( price * 100) ;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount:amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    })
+    //Payment related Api
+    app.post('/payments', verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+      
+      const query = { _id: new ObjectId(payment.selectedClassId) };
+      const deleteResult = await selectedclassCollection.deleteOne(query);
+      
+      const filter = { _id: new ObjectId(payment.classId) };
+      const classDoc = await classCollection.findOne(filter);
+      
+      if (!classDoc) {
+        res.status(404).send('Class not found');
+        return;
+      }
+      
+      const seats = classDoc.seats;
+      const totalEnrolled = classDoc.totalEnrolled;
+      
+      if (seats <= 0) {
+        res.status(400).send('No available seats');
+        return;
+      }
+      
+      const updatedSeats = seats - 1;
+      const updatedTotalEnrolled = totalEnrolled + 1;
+      
+      const updatedDoc = {
+        $set: {
+          seats: updatedSeats,
+          totalEnrolled: updatedTotalEnrolled
+        }
+      };
+      
+      const updateResult = await classCollection.updateOne(filter, updatedDoc);
+      
+      res.send({ insertResult, deleteResult, updateResult });
+    });
+
+    //Get all paid classes info Api
+    
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
