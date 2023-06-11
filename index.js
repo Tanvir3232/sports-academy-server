@@ -69,11 +69,11 @@ async function run() {
       next();
     }
     //Users related API
-    app.get('/users',async (req, res) => {
+    app.get('/users', async (req, res) => {
       let query = {};
-      if(req.query.instructors){
+      if (req.query.instructors) {
         console.log(req.query.instructors);
-         query = {role:req.query.instructors};
+        query = { role: req.query.instructors };
       }
       const result = await userCollection.find(query).toArray();
       res.send(result);
@@ -144,17 +144,17 @@ async function run() {
     //Class related API
     app.get('/classes', async (req, res) => {
       const email = req.query.email;
-     
+
       let query = {}
       if (email) {
         const checkUser = await userCollection.findOne({ email: email });
-        if(checkUser){
-             query = {instructorEmail: email}
+        if (checkUser) {
+          query = { instructorEmail: email }
         }
-       
+
       }
-      if(req.query.status){
-        query = {status: req.query.status}
+      if (req.query.status) {
+        query = { status: req.query.status }
       }
       const result = await classCollection.find(query).toArray();
       res.send(result);
@@ -180,9 +180,9 @@ async function run() {
       res.send(result);
 
     })
-    app.patch('/classes/approve/:id',verifyJWT,verifyAdmin, async (req, res) => {
+    app.patch('/classes/approve/:id', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-     
+
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
@@ -192,9 +192,9 @@ async function run() {
       const result = await classCollection.updateOne(filter, updatedDoc);
       res.send(result);
     })
-    app.patch('/classes/disapprove/:id',verifyJWT,verifyAdmin, async (req, res) => {
+    app.patch('/classes/disapprove/:id', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      
+
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
@@ -214,41 +214,41 @@ async function run() {
 
 
     //Selected Class Related API
-    app.get('/selectedclasses',async(req,res)=>{
-       let query = {};
-       if(req.query.email){
-       
-         query = {studentEmail: req.query.email};
-       }
-       const result = await selectedclassCollection.find(query).toArray();
-       res.send(result);
+    app.get('/selectedclasses', async (req, res) => {
+      let query = {};
+      if (req.query.email) {
+
+        query = { studentEmail: req.query.email };
+      }
+      const result = await selectedclassCollection.find(query).toArray();
+      res.send(result);
     })
-    app.get('/selectedclasses/:id',async(req,res)=>{
-       const id = req.params.id;
-       const query = {_id: new ObjectId(id)};
-       const result = await selectedclassCollection.findOne(query);
-       res.send(result)
+    app.get('/selectedclasses/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await selectedclassCollection.findOne(query);
+      res.send(result)
     })
-    app.post('/selectedclasses',async(req,res)=>{
-        const newClass = req.body;
-       
-        const result = await selectedclassCollection.insertOne(newClass);
-        res.send(result);
+    app.post('/selectedclasses', async (req, res) => {
+      const newClass = req.body;
+
+      const result = await selectedclassCollection.insertOne(newClass);
+      res.send(result);
     })
-    app.delete('/selectedclasses/:id',async(req,res)=>{
-        const id = req.params.id;
-       
-        const query = {_id: new ObjectId(id)}
-        const result = await selectedclassCollection.deleteOne(query);
-        res.send(result);
+    app.delete('/selectedclasses/:id', async (req, res) => {
+      const id = req.params.id;
+
+      const query = { _id: new ObjectId(id) }
+      const result = await selectedclassCollection.deleteOne(query);
+      res.send(result);
     })
 
     // Payment related api
-    app.post('/create-payment-intent',verifyJWT,async(req,res)=>{
-      const {price} = req.body;
-      const amount  = parseInt( price * 100) ;
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
       const paymentIntent = await stripe.paymentIntents.create({
-        amount:amount,
+        amount: amount,
         currency: 'usd',
         payment_method_types: ['card']
       });
@@ -260,43 +260,54 @@ async function run() {
     app.post('/payments', verifyJWT, async (req, res) => {
       const payment = req.body;
       const insertResult = await paymentCollection.insertOne(payment);
-      
+
       const query = { _id: new ObjectId(payment.selectedClassId) };
       const deleteResult = await selectedclassCollection.deleteOne(query);
-      
+
       const filter = { _id: new ObjectId(payment.classId) };
       const classDoc = await classCollection.findOne(filter);
-      
+
       if (!classDoc) {
         res.status(404).send('Class not found');
         return;
       }
-      
+
       const seats = classDoc.seats;
       const totalEnrolled = classDoc.totalEnrolled;
-      
+
       if (seats <= 0) {
         res.status(400).send('No available seats');
         return;
       }
-      
+
       const updatedSeats = seats - 1;
       const updatedTotalEnrolled = totalEnrolled + 1;
-      
+
       const updatedDoc = {
         $set: {
           seats: updatedSeats,
           totalEnrolled: updatedTotalEnrolled
         }
       };
-      
+
       const updateResult = await classCollection.updateOne(filter, updatedDoc);
-      
+
       res.send({ insertResult, deleteResult, updateResult });
     });
+    //payment history for students
 
     //Get all paid classes info Api
-    
+    app.get('/user/enrolledclasses', verifyJWT, async (req, res) => {
+      const userEmail = req.query.email;
+      const matchingPayments = await paymentCollection.find({ email: userEmail }).toArray();
+      
+      const classIds = matchingPayments.map(payment => payment.classId);
+     
+
+      const matchingClasses = await classCollection.find({_id:{$in: classIds.map(id=>new ObjectId(id))}}).toArray();
+     
+      res.send(matchingClasses);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
