@@ -212,10 +212,26 @@ async function run() {
 
 
     //Selected Class Related API
+    app.get('/selectedclasses',async(req,res)=>{
+       let query = {};
+       if(req.query.email){
+       
+         query = {studentEmail: req.query.email};
+       }
+       const result = await selectedclassCollection.find(query).toArray();
+       res.send(result);
+    })
     app.post('/selectedclasses',async(req,res)=>{
         const newClass = req.body;
-        console.log(newClass);
+       
         const result = await selectedclassCollection.insertOne(newClass);
+        res.send(result);
+    })
+    app.delete('/selectedclasses/:id',async(req,res)=>{
+        const id = req.params.id;
+       
+        const query = {_id: new ObjectId(id)}
+        const result = await selectedclassCollection.deleteOne(query);
         res.send(result);
     })
  
