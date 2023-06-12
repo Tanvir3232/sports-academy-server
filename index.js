@@ -204,6 +204,25 @@ async function run() {
       const result = await classCollection.updateOne(filter, updatedDoc);
       res.send(result);
     })
+    
+    app.patch('/classes/feedback/:classId', async (req, res) => {
+      const classId = req.params.classId;
+      const message = req.body.message;
+    
+      const filter = { _id: new ObjectId(classId) };
+      const updatedDoc = {
+        $set: {
+          feedback: message
+        }
+      };
+    
+      const result = await classCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    
+    
+    
+
     app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body;
       newClass.status = 'pending';
@@ -299,7 +318,7 @@ async function run() {
       const email = req.query.email;
       console.log(email);
       const query = {email:email};
-      const result = await paymentCollection.find(query).toArray();
+      const result = await paymentCollection.find(query).sort({ date: -1 }).toArray()
       res.send(result);
     })
     //Get all paid classes info Api
