@@ -295,7 +295,13 @@ async function run() {
       res.send({ insertResult, deleteResult, updateResult });
     });
     //payment history for students
-
+    app.get('/payments',async(req,res)=>{
+      const email = req.query.email;
+      console.log(email);
+      const query = {email:email};
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    })
     //Get all paid classes info Api
     app.get('/user/enrolledclasses', verifyJWT, async (req, res) => {
       const userEmail = req.query.email;
