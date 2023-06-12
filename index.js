@@ -159,6 +159,58 @@ async function run() {
       const result = await classCollection.find(query).toArray();
       res.send(result);
     })
+    app.get('/classes/topclasses', async(req, res) => {
+      console.log('hellow')
+      const query = {status:'approved'}
+      const result = await classCollection.find(query).sort({ totalEnrolled: -1 }).limit(6).toArray();
+      res.send(result);
+    });
+    app.get('/instructors/topinstructors', async (req, res) => {
+      try {
+        const pipeline = [
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'instructorEmail',
+              foreignField: 'email',
+              as: 'instructor',
+            },
+          },
+          {
+            $unwind: '$instructor',
+          },
+          {
+            $group: {
+              _id: '$instructorEmail',
+              instructorName: { $first: '$instructorName' },
+              totalStudents: { $sum: '$totalEnrolled' },
+              classes: {
+                $push: {
+                  name: '$name',
+                  totalEnrolled: '$totalEnrolled',
+                },
+              },
+              instructorImage: { $first: '$instructor.photo' },
+            },
+          },
+          {
+            $sort: { totalStudents: -1 },
+          },
+          {
+            $limit: 6,
+          },
+        ];
+    
+        const result = await classCollection.aggregate(pipeline).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send('Internal Server Error');
+      }
+    });
+    
+    
+    
     app.get('/classes/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
