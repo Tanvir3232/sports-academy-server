@@ -161,9 +161,9 @@ async function run() {
       const result = await classCollection.find(query).toArray();
       res.send(result);
     })
-    app.get('/classes/topclasses', async(req, res) => {
+    app.get('/classes/topclasses', async (req, res) => {
       console.log('hellow')
-      const query = {status:'approved'}
+      const query = { status: 'approved' }
       const result = await classCollection.find(query).sort({ totalEnrolled: -1 }).limit(6).toArray();
       res.send(result);
     });
@@ -202,7 +202,7 @@ async function run() {
             $limit: 6,
           },
         ];
-    
+
         const result = await classCollection.aggregate(pipeline).toArray();
         res.send(result);
       } catch (error) {
@@ -210,9 +210,9 @@ async function run() {
         res.status(500).send('Internal Server Error');
       }
     });
-    
-    
-    
+
+
+
     app.get('/classes/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -258,24 +258,24 @@ async function run() {
       const result = await classCollection.updateOne(filter, updatedDoc);
       res.send(result);
     })
-    
+
     app.patch('/classes/feedback/:classId', async (req, res) => {
       const classId = req.params.classId;
       const message = req.body.message;
-    
+
       const filter = { _id: new ObjectId(classId) };
       const updatedDoc = {
         $set: {
           feedback: message
         }
       };
-    
+
       const result = await classCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
-    
-    
-    
+
+
+
 
     app.post('/classes', verifyJWT, verifyInstructor, async (req, res) => {
       const newClass = req.body;
@@ -368,10 +368,10 @@ async function run() {
       res.send({ insertResult, deleteResult, updateResult });
     });
     //payment history for students
-    app.get('/payments',async(req,res)=>{
+    app.get('/payments', async (req, res) => {
       const email = req.query.email;
       console.log(email);
-      const query = {email:email};
+      const query = { email: email };
       const result = await paymentCollection.find(query).sort({ date: -1 }).toArray()
       res.send(result);
     })
@@ -379,23 +379,121 @@ async function run() {
     app.get('/user/enrolledclasses', verifyJWT, async (req, res) => {
       const userEmail = req.query.email;
       const matchingPayments = await paymentCollection.find({ email: userEmail }).toArray();
-      
-      const classIds = matchingPayments.map(payment => payment.classId);
-     
 
-      const matchingClasses = await classCollection.find({_id:{$in: classIds.map(id=>new ObjectId(id))}}).toArray();
-     
+      const classIds = matchingPayments.map(payment => payment.classId);
+
+
+      const matchingClasses = await classCollection.find({ _id: { $in: classIds.map(id => new ObjectId(id)) } }).toArray();
+
       res.send(matchingClasses);
     });
+    //Student dashboard related api 
+    //get for Student stats cards
+    app.get('/student-stats', async (req, res) => {
+      try {
+        const email = req.query.email;
+        console.log(email);
+
+        const enrolledClasses = await paymentCollection.countDocuments({ email: email });
+        const selectedClasses = await selectedclassCollection.countDocuments({ studentEmail: email });
+        const totalPayment = await paymentCollection.aggregate([
+          {
+            $match: { email: email }
+          },
+          {
+            $group: {
+              _id: null,
+              totalPayment: { $sum: '$price' }
+            }
+          }
+        ]).toArray();
+        const totalPaymentValue = totalPayment.length > 0 ? totalPayment[0].totalPayment : 0;
+
+        res.send({
+          enrolledClasses,
+          selectedClasses,
+          totalPayment: totalPaymentValue
+        });
+      } catch (error) {
+        res.status(500).send({ error: 'An error occurred while retrieving statistics.' });
+      }
+    });
+    // payment-chart data
+    app.get('/payment-chart', verifyJWT, async (req, res) => {
+      try {
+        const email = req.query.email;
+        const paymentData = await paymentCollection.find({ email }).toArray();
+    
+        const sortedData = paymentData.sort((a, b) => {
+          const dateA = moment(a.date, 'YYYY-MM-DD').toDate();
+          const dateB = moment(b.date, 'YYYY-MM-DD').toDate();
+          return dateA - dateB;
+        });
+    
+        const chartData = sortedData.map((payment) => ({
+          date: moment(payment.date).format('YYYY-MM-DD'),
+          payment: payment.price,
+        }));
+    
+        res.send(chartData);
+      } catch (error) {
+        res.status(500).send({ error: 'An error occurred while retrieving payment chart data.' });
+      }
+    });
+    
+    //Instructor dashboard related api 
+    //get for Instructor stats cards
+    app.get('/instructor-stats', verifyJWT, async (req, res) => {
+      try {
+        const email = req.query.email;
+        console.log(email);
+    
+        const totalStudents = await classCollection.aggregate([
+          {
+            $match: { instructorEmail: email }
+          },
+          {
+            $group: {
+              _id: null,
+              totalEnrolled: { $sum: '$totalEnrolled' }
+            }
+          }
+        ]).toArray();
+    
+        const pendingClasses = await classCollection.countDocuments({
+          instructorEmail: email,
+          status: 'pending'
+        });
+    
+        const totalApprovedClasses = await classCollection.countDocuments({
+          instructorEmail: email,
+          status: 'approved'
+        });
+    
+        res.send({
+          totalStudents: totalStudents[0]?.totalEnrolled || 0,
+          pendingClasses,
+          totalApprovedClasses
+        });
+      } catch (error) {
+        res.status(500).send({ error: 'An error occurred while retrieving statistics.' });
+      }
+    });
+    
+    
+    
+
+
 
     //Admin dashboard related api 
+    //get for admin stats cards
     app.get('/admin-stats', verifyJWT, verifyAdmin, async (req, res) => {
       try {
         const users = await userCollection.estimatedDocumentCount();
         const approvedClasses = await classCollection.countDocuments({ status: 'approved' });
         const payments = await paymentCollection.countDocuments();
         const classes = await classCollection.estimatedDocumentCount();
-        
+
         res.send({
           users,
           classes,
@@ -424,18 +522,18 @@ async function run() {
             }
           }
         ]).toArray();
-    
+
         res.send(roleDistribution);
       } catch (error) {
         res.status(500).send({ error: 'An error occurred while retrieving role distribution.' });
       }
     });
-    // payments for barchart
+    // monthly payments for barchart
     app.get('/monthly-payments', async (req, res) => {
       try {
         const payments = await paymentCollection.find().toArray();
         const monthlyTotals = {};
-    
+
         payments.forEach((payment) => {
           const month = moment(payment.date).format('MMM');
           if (!monthlyTotals[month]) {
@@ -444,25 +542,25 @@ async function run() {
             monthlyTotals[month] += payment.price;
           }
         });
-    
+
         // Sort the monthly totals by month in ascending order
         const sortedMonthlyTotals = Object.entries(monthlyTotals)
           .sort((a, b) => moment().month(a[0]).diff(moment().month(b[0])))
           .map(([month, total]) => ({ month, total }));
-    
+
         const chartData = sortedMonthlyTotals.map(({ month, total }) => ({
           month,
           total,
         }));
-    
+
         res.json(chartData);
       } catch (error) {
         res.status(500).json({ error: 'An error occurred while retrieving payments.' });
       }
     });
-    
-    
-    
+
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
