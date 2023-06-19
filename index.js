@@ -6,6 +6,8 @@ require('dotenv').config();
 const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const app = express();
 const port = process.env.PORT || 5000;
+const moment = require('moment');
+
 app.use(cors());
 app.use(express.json())
 
@@ -385,6 +387,82 @@ async function run() {
      
       res.send(matchingClasses);
     });
+
+    //Admin dashboard related api 
+    app.get('/admin-stats', verifyJWT, verifyAdmin, async (req, res) => {
+      try {
+        const users = await userCollection.estimatedDocumentCount();
+        const approvedClasses = await classCollection.countDocuments({ status: 'approved' });
+        const payments = await paymentCollection.countDocuments();
+        const classes = await classCollection.estimatedDocumentCount();
+        
+        res.send({
+          users,
+          classes,
+          approvedClasses,
+          payments
+        });
+      } catch (error) {
+        res.status(500).send({ error: 'An error occurred while retrieving statistics.' });
+      }
+    });
+    //// user role distribution
+    app.get('/user-role-distribution', async (req, res) => {
+      try {
+        const roleDistribution = await userCollection.aggregate([
+          {
+            $group: {
+              _id: "$role",
+              count: { $sum: 1 }
+            }
+          },
+          {
+            $project: {
+              role: "$_id",
+              count: 1,
+              _id: 0
+            }
+          }
+        ]).toArray();
+    
+        res.send(roleDistribution);
+      } catch (error) {
+        res.status(500).send({ error: 'An error occurred while retrieving role distribution.' });
+      }
+    });
+    // payments for barchart
+    app.get('/monthly-payments', async (req, res) => {
+      try {
+        const payments = await paymentCollection.find().toArray();
+        const monthlyTotals = {};
+    
+        payments.forEach((payment) => {
+          const month = moment(payment.date).format('MMM');
+          if (!monthlyTotals[month]) {
+            monthlyTotals[month] = payment.price;
+          } else {
+            monthlyTotals[month] += payment.price;
+          }
+        });
+    
+        // Sort the monthly totals by month in ascending order
+        const sortedMonthlyTotals = Object.entries(monthlyTotals)
+          .sort((a, b) => moment().month(a[0]).diff(moment().month(b[0])))
+          .map(([month, total]) => ({ month, total }));
+    
+        const chartData = sortedMonthlyTotals.map(({ month, total }) => ({
+          month,
+          total,
+        }));
+    
+        res.json(chartData);
+      } catch (error) {
+        res.status(500).json({ error: 'An error occurred while retrieving payments.' });
+      }
+    });
+    
+    
+    
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
