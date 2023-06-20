@@ -446,7 +446,7 @@ async function run() {
     app.get('/instructor-stats', verifyJWT, async (req, res) => {
       try {
         const email = req.query.email;
-        console.log(email);
+       
     
         const totalStudents = await classCollection.aggregate([
           {
@@ -481,9 +481,56 @@ async function run() {
     });
     
     
+    //Every class students api
+    app.get('/class-students', async (req, res) => {
+      try {
+        const email = req.query.email;
     
-
-
+        const results = await classCollection.find({ instructorEmail: email, status: "approved" }).project({ name: 1, totalEnrolled: 1 }).toArray();
+    
+        if (results.length === 0) {
+          res.status(404).json({ error: 'No matching records found' });
+          return;
+        }
+    
+       
+        const classes = results.map(({ name, totalEnrolled }) => ({ name, totalEnrolled }));
+        res.json(classes);
+      } catch (error) {
+        console.error('Failed to retrieve data:', error);
+        res.status(500).json({ error: 'Failed to retrieve data' });
+      }
+    });
+    
+    //Each class earn money
+    app.get('/instructor-earnings', async (req, res) => {
+      try {
+        const instructorEmail = req.query.instructorEmail;
+    
+        const earnings = await classCollection.aggregate([
+          { $match: { instructorEmail } },
+          {
+            $project: {
+              _id: 0,
+              name: 1,
+              earnings: { $multiply: ['$totalEnrolled', '$price'] }
+            }
+          }
+        ]).toArray();
+    
+        if (earnings.length === 0) {
+          res.status(404).json({ error: 'No classes found for the instructor' });
+          return;
+        }
+    
+        res.json(earnings);
+      } catch (error) {
+        console.error('Failed to retrieve earnings:', error);
+        res.status(500).json({ error: 'Failed to retrieve earnings' });
+      }
+    });
+    
+    
 
     //Admin dashboard related api 
     //get for admin stats cards
